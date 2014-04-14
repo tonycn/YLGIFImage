@@ -8,8 +8,11 @@
 
 #import <UIKit/UIKit.h>
 
+#import "YLGIFImage.h"
+
 @interface YLImageView : UIImageView
 
 @property (nonatomic, copy) NSString *runLoopMode;
+- (YLGIFImage *)animatedImage;
 
 @end
