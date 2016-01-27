@@ -71,7 +71,7 @@ inline static BOOL isRetinaFilePath(NSString *path)
 @end
 
 static NSUInteger _prefetchedNum = 10;
-
+static UIImage *imagePlaceHolder = nil;
 @implementation YLGIFImage
 {
     dispatch_queue_t readFrameQueue;
@@ -82,6 +82,20 @@ static NSUInteger _prefetchedNum = 10;
 @synthesize images;
 
 #pragma mark - Class Methods
+
++ (void)load
+{
+    CGRect rect = CGRectMake(0.0f, 0.0f, 1.0f, 1.0f);
+    UIGraphicsBeginImageContext(rect.size);
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    
+    CGContextSetFillColorWithColor(context, [[UIColor blackColor] CGColor]);
+    CGContextFillRect(context, rect);
+    
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    imagePlaceHolder = image;
+}
 
 + (id)imageNamed:(NSString *)name
 {
@@ -179,9 +193,8 @@ static NSUInteger _prefetchedNum = 10;
     self.loopCount = [gifProperties[(NSString *)kCGImagePropertyGIFLoopCount] unsignedIntegerValue];
     self.images = [NSMutableArray arrayWithCapacity:numberOfFrames];
     
-    NSNull *aNull = [NSNull null];
     for (NSUInteger i = 0; i < numberOfFrames; ++i) {
-        [self.images addObject:aNull];
+        [self.images addObject:imagePlaceHolder];
         NSTimeInterval frameDuration = CGImageSourceGetGifFrameDelay(imageSource, i);
         self.frameDurations[i] = frameDuration;
         self.totalDuration += frameDuration;
@@ -195,7 +208,7 @@ static NSUInteger _prefetchedNum = 10;
             [self.images replaceObjectAtIndex:i withObject:[UIImage imageWithCGImage:image scale:_scale orientation:UIImageOrientationUp]];
             CFRelease(image);
         } else {
-            [self.images replaceObjectAtIndex:i withObject:[NSNull null]];
+            [self.images replaceObjectAtIndex:i withObject:imagePlaceHolder];
         }
     }
     _imageSourceRef = imageSource;
@@ -226,12 +239,12 @@ static NSUInteger _prefetchedNum = 10;
     }
     if(self.images.count > _prefetchedNum) {
         if(idx != 0) {
-            [self.images replaceObjectAtIndex:idx withObject:[NSNull null]];
+            [self.images replaceObjectAtIndex:idx withObject:imagePlaceHolder];
         }
         NSUInteger nextReadIdx = (idx + _prefetchedNum);
         for(NSUInteger i=idx+1; i<=nextReadIdx; i++) {
             NSUInteger _idx = i%self.images.count;
-            if([self.images[_idx] isKindOfClass:[NSNull class]]) {
+            if(self.images[_idx] == imagePlaceHolder) {
                 dispatch_async(readFrameQueue, ^{
                     CGImageRef image = CGImageSourceCreateImageAtIndex(_imageSourceRef, _idx, NULL);
                     @synchronized(self.images) {
@@ -239,7 +252,7 @@ static NSUInteger _prefetchedNum = 10;
                             [self.images replaceObjectAtIndex:_idx withObject:[UIImage imageWithCGImage:image scale:_scale orientation:UIImageOrientationUp]];
                             CFRelease(image);
                         } else {
-                            [self.images replaceObjectAtIndex:_idx withObject:[NSNull null]];
+                            [self.images replaceObjectAtIndex:_idx withObject:imagePlaceHolder];
                         }
                     }
                 });
